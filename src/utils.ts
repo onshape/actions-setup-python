@@ -116,7 +116,13 @@ export function isGhes(): boolean {
   const ghUrl = new URL(
     process.env['GITHUB_SERVER_URL'] || 'https://github.com'
   );
-  return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
+
+  const hostname = ghUrl.hostname.trimEnd().toUpperCase();
+  const isGitHubHost = hostname === 'GITHUB.COM';
+  const isGitHubEnterpriseCloudHost = hostname.endsWith('.GHE.COM');
+  const isLocalHost = hostname.endsWith('.LOCALHOST');
+
+  return !isGitHubHost && !isGitHubEnterpriseCloudHost && !isLocalHost;
 }
 
 export function isCacheFeatureAvailable(): boolean {
@@ -222,7 +228,7 @@ function extractValue(obj: any, keys: string[]): string | undefined {
  * If none is present, returns an empty list.
  */
 export function getVersionInputFromTomlFile(versionFile: string): string[] {
-  core.debug(`Trying to resolve version form ${versionFile}`);
+  core.debug(`Trying to resolve version from ${versionFile}`);
 
   let pyprojectFile = fs.readFileSync(versionFile, 'utf8');
   // Normalize the line endings in the pyprojectFile
@@ -263,23 +269,72 @@ export function getVersionInputFromTomlFile(versionFile: string): string[] {
 }
 
 /**
- * Python version extracted from a plain text file.
+ * Python versions extracted from a plain text file.
+ * - Resolves multiple versions from multiple lines.
+ * - Handles pyenv-virtualenv pointers (e.g. `3.10/envs/virtualenv`).
+ * - Ignores empty lines and lines starting with `#`
+ * - Trims whitespace.
  */
-export function getVersionInputFromPlainFile(versionFile: string): string[] {
-  core.debug(`Trying to resolve version form ${versionFile}`);
-  const version = fs.readFileSync(versionFile, 'utf8').trim();
-  core.info(`Resolved ${versionFile} as ${version}`);
-  return [version];
+export function getVersionsInputFromPlainFile(versionFile: string): string[] {
+  core.debug(`Trying to resolve versions from ${versionFile}`);
+  const content = fs.readFileSync(versionFile, 'utf8').trim();
+  const lines = content.split(/\r\n|\r|\n/);
+  const versions = lines
+    .map(line => {
+      if (line.startsWith('#') || line.trim() === '') {
+        return undefined;
+      }
+      let version: string = line.trim();
+      version = version.split('/')[0];
+      return version;
+    })
+    .filter(version => version !== undefined) as string[];
+  core.info(`Resolved ${versionFile} as ${versions.join(', ')}`);
+  return versions;
 }
 
 /**
- * Python version extracted from a plain or TOML file.
+ * Python version extracted from a .tool-versions file.
+ */
+export function getVersionInputFromToolVersions(versionFile: string): string[] {
+  if (!fs.existsSync(versionFile)) {
+    core.warning(`File ${versionFile} does not exist.`);
+    return [];
+  }
+
+  try {
+    const fileContents = fs.readFileSync(versionFile, 'utf8');
+    const lines = fileContents.split('\n');
+
+    for (const line of lines) {
+      // Skip commented lines
+      if (line.trim().startsWith('#')) {
+        continue;
+      }
+      const match = line.match(/^\s*python\s*v?\s*(?<version>[^\s]+)\s*$/);
+      if (match) {
+        return [match.groups?.version.trim() || ''];
+      }
+    }
+
+    core.warning(`No Python version found in ${versionFile}`);
+
+    return [];
+  } catch (error) {
+    core.error(`Error reading ${versionFile}: ${(error as Error).message}`);
+    return [];
+  }
+}
+/**
+ * Python version extracted from a plain, .tool-versions or TOML file.
  */
 export function getVersionInputFromFile(versionFile: string): string[] {
   if (versionFile.endsWith('.toml')) {
     return getVersionInputFromTomlFile(versionFile);
+  } else if (versionFile.match('.tool-versions')) {
+    return getVersionInputFromToolVersions(versionFile);
   } else {
-    return getVersionInputFromPlainFile(versionFile);
+    return getVersionsInputFromPlainFile(versionFile);
   }
 }
 

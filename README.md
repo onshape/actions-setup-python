@@ -21,7 +21,7 @@ steps:
 - uses: actions/checkout@v4
 - uses: actions/setup-python@v5
   with:
-    python-version: '3.12' 
+    python-version: '3.13' 
 - run: python my_script.py
 ```
 
@@ -45,6 +45,16 @@ steps:
 - run: python my_script.py
 ```
 
+**Free threaded Python**
+```yaml
+steps:
+- uses: actions/checkout@v4
+- uses: actions/setup-python@v5
+  with:
+    python-version: '3.13t'
+- run: python my_script.py
+```
+
 The `python-version` input is optional. If not supplied, the action will try to resolve the version from the default `.python-version` file. If the `.python-version` file doesn't exist Python or PyPy version from the PATH will be used. The default version of Python or PyPy in PATH varies between runners and can be changed unexpectedly so we recommend always setting Python version explicitly using the `python-version` or `python-version-file` inputs.
 
 The action will first check the local [tool cache](docs/advanced-usage.md#hosted-tool-cache) for a [semver](https://github.com/npm/node-semver#versions) match. If unable to find a specific version in the tool cache, the action will attempt to download a version of Python from [GitHub Releases](https://github.com/actions/python-versions/releases) and for PyPy from the official [PyPy's dist](https://downloads.python.org/pypy/).
@@ -57,7 +67,7 @@ The `python-version` input supports the [Semantic Versioning Specification](http
 
 ## Supported architectures
 
-Using `architecture` input it is possible to specify the required Python or PyPy interpreter architecture: `x86` or `x64`. If the input is not specified the architecture defaults to `x64`.
+Using the `architecture` input, it is possible to specify the required Python or PyPy interpreter architecture: `x86`, `x64`, or `arm64`. If the input is not specified, the architecture defaults to the host OS architecture.
 
 ## Caching packages dependencies
 
@@ -76,7 +86,7 @@ steps:
 - uses: actions/checkout@v4
 - uses: actions/setup-python@v5
   with:
-    python-version: '3.12'
+    python-version: '3.13'
     cache: 'pip' # caching pip dependencies
 - run: pip install -r requirements.txt
 ```
@@ -98,6 +108,15 @@ See examples of using `cache` and `cache-dependency-path` for `pipenv` and `poet
 - [Using `setup-python` with a self-hosted runner](docs/advanced-usage.md#using-setup-python-with-a-self-hosted-runner)
 - [Using `setup-python` on GHES](docs/advanced-usage.md#using-setup-python-on-ghes)
 - [Allow pre-releases](docs/advanced-usage.md#allow-pre-releases)
+
+## Recommended permissions
+
+When using the `setup-python` action in your GitHub Actions workflow, it is recommended to set the following permissions to ensure proper functionality:
+
+```yaml
+permissions:
+  contents: read # access to check out code and install dependencies
+```
 
 ## License
 
